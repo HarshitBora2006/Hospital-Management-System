@@ -82,29 +82,41 @@
     <input name="age" placeholder="Age" required>
     <input name="gender" placeholder="Gender" required>
     <input type="date" name="date" required>
-        <select name="time" required>
-    {% set times = [] %}
-    {% for hour in range(9, 12) %}
-        {% for minute in range(0, 60, 10) %}
-        {% set h = "%02d" % hour %}
-        {% set m = "%02d" % minute %}
-        {% set t = h ~ ":" ~ m %}
-        {% set _ = times.append(t) %}
-        {% endfor %}
-    {% endfor %}
-    {% for hour in range(14, 18) %}
-        {% for minute in range(0, 60, 10) %}
-        {% set h = "%02d" % hour %}
-        {% set m = "%02d" % minute %}
-        {% set t = h ~ ":" ~ m %}
-        {% set _ = times.append(t) %}
-        {% endfor %}
-    {% endfor %}
-    {% for t in times %}
-        <option value="{{ t }}">{{ t }}</option>
-    {% endfor %}
+
+    <!-- Time dropdown -->
+    <select name="time" required>
+      {% set times = [] %}
+      {% for hour in range(9, 12) %}
+          {% for minute in range(0, 60, 10) %}
+          {% set h = "%02d" % hour %}
+          {% set m = "%02d" % minute %}
+          {% set t = h ~ ":" ~ m %}
+          {% set _ = times.append(t) %}
+          {% endfor %}
+      {% endfor %}
+      {% for hour in range(14, 18) %}
+          {% for minute in range(0, 60, 10) %}
+          {% set h = "%02d" % hour %}
+          {% set m = "%02d" % minute %}
+          {% set t = h ~ ":" ~ m %}
+          {% set _ = times.append(t) %}
+          {% endfor %}
+      {% endfor %}
+      {% for t in times %}
+          <option value="{{ t }}">{{ t }}</option>
+      {% endfor %}
     </select>
-    <textarea name="problem" placeholder="Describe your problem" required></textarea>
+
+    <!-- Problem dropdown -->
+    <select name="problem" required>
+      <option value="Heart">Heart (Cardiologist)</option>
+      <option value="Fever">Fever (General Physician)</option>
+      <option value="Skin">Skin (Dermatologist)</option>
+      <option value="Diabetes">Diabetes (Endocrinologist)</option>
+      <option value="Bone">Bone/Orthopedic</option>
+      <option value="Can't say">Can't say</option>
+    </select>
+
     <button class="btn primary">Book</button>
   </form>
 </div>
@@ -116,7 +128,17 @@
     <input name="name" value="{{ session.get('username') }}" placeholder="Name" required>
     <input name="age" placeholder="Age" required>
     <input name="gender" placeholder="Gender" required>
-    <textarea name="problem" placeholder="Describe the emergency" required></textarea>
+
+    <!-- Use the same problem dropdown for consistency -->
+    <select name="problem" required>
+      <option value="Heart">Heart (Cardiologist)</option>
+      <option value="Fever">Fever (General Physician)</option>
+      <option value="Skin">Skin (Dermatologist)</option>
+      <option value="Diabetes">Diabetes (Endocrinologist)</option>
+      <option value="Bone">Bone/Orthopedic</option>
+      <option value="Can't say">Can't say</option>
+    </select>
+
     <button class="btn danger">Report Emergency</button>
   </form>
 </div>
