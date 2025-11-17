@@ -1,6 +1,0 @@
-# Minimal requirements.txt for Render. Edit to match your project.
-gunicorn==20.1.0
-python-dotenv==1.0.0
-requests==2.31.0
-Flask==2.3.2
-setuptools<81
