@@ -1,0 +1,149 @@
+{
+    "users": {
+        "admin": {
+            "password": "adminpass",
+            "role": "Admin"
+        },
+        "deepak_kanwal": {
+            "password": "Deepu098",
+            "role": "Doctor",
+            "id": "e92fedec"
+        },
+        "test_patient": {
+            "password": "patientpass",
+            "role": "Patient",
+            "id": "85d0bba5"
+        },
+        "harshit": {
+            "password": "Harshit123",
+            "role": "Doctor",
+            "id": "bd81fda5"
+        },
+        "amit": {
+            "password": "amit123",
+            "role": "Patient",
+            "id": "d1db5d7e"
+        },
+        "sumit": {
+            "password": "sumit098",
+            "role": "Patient",
+            "id": "51214f3a"
+        },
+        "nagendra": {
+            "password": "Rana123",
+            "role": "Patient",
+            "id": "a1c6a3cd"
+        },
+        "surya": {
+            "password": "chuha123",
+            "role": "Patient",
+            "id": "97d6355f"
+        },
+        "nagendra_singh_rana": {
+            "password": "Nagendra6969",
+            "role": "Doctor",
+            "id": "0b40c774"
+        }
+    },
+    "patients": {
+        "85d0bba5": {
+            "id": "85d0bba5",
+            "name": "Test Patient",
+            "age": "35",
+            "gender": "M"
+        },
+        "d1db5d7e": {
+            "id": "d1db5d7e",
+            "name": "Amit Kumar",
+            "age": "34",
+            "gender": "M"
+        },
+        "51214f3a": {
+            "id": "51214f3a",
+            "name": "Sumit Mahar",
+            "age": "20",
+            "gender": "M"
+        },
+        "a1c6a3cd": {
+            "id": "a1c6a3cd",
+            "name": "Nagendra Singh Rana",
+            "age": "21",
+            "gender": "M"
+        },
+        "97d6355f": {
+            "id": "97d6355f",
+            "name": "Suryansh",
+            "age": "25",
+            "gender": "M"
+        }
+    },
+    "doctors": {
+        "e92fedec": {
+            "id": "e92fedec",
+            "name": "Deepak Kanwal",
+            "specialty": "Orthology"
+        },
+        "bd81fda5": {
+            "id": "bd81fda5",
+            "name": "Harshit",
+            "specialty": "Cardiology"
+        },
+        "0b40c774": {
+            "id": "0b40c774",
+            "name": "Nagendra Singh Rana",
+            "specialty": "Gynecologist"
+        }
+    },
+    "appointments": [
+        {
+            "id": "925cb094",
+            "patient_id": "d1db5d7e",
+            "doctor_id": "e92fedec",
+            "date": "2025-11-09",
+            "time": "10:19",
+            "problem": "fracture in leg",
+            "status": "Approved"
+        },
+        {
+            "id": "3f21931a",
+            "patient_id": "51214f3a",
+            "doctor_id": null,
+            "date": "2025-11-09",
+            "time": "02:22",
+            "problem": "Heart Attack",
+            "status": "Emergency"
+        },
+        {
+            "id": "0ca157cb",
+            "patient_id": "a1c6a3cd",
+            "doctor_id": "e92fedec",
+            "date": "2025-11-09",
+            "time": "09:00",
+            "problem": "Joint disslocate",
+            "status": "Approved"
+        }
+    ],
+    "reports": {
+        "d1db5d7e": [
+            {
+                "report_id": "0c1a855e",
+                "date": "2025-11-09",
+                "doctor_id": "e92fedec",
+                "details": ""
+            }
+        ],
+        "a1c6a3cd": [
+            {
+                "Date": "Today",
+                "Doctor": "deepak_kanwal",
+                "File": "HARSHIT_PHTOT.jpg"
+            },
+            {
+                "Date": "Today",
+                "Doctor": "deepak_kanwal",
+                "File": "117c70fe7a3a4c41a1fbb93848d23e4a_DS_Lab_Manual.pdf"
+            }
+        ]
+    },
+    "referrals": []
+}

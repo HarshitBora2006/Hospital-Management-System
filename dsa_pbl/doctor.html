@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% block title %}Doctor Dashboard{% endblock %}
+{% block content %}
+<h2>Doctor Dashboard</h2>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('today')">Today's Appointments</button>
+  <button class="tab-btn" onclick="showTab('emergency')">Emergency Cases</button>
+  <button class="tab-btn" onclick="showTab('referrals')">Referrals</button>
+  <button class="tab-btn" onclick="showTab('reports')">Reports</button>
+</div>
+
+<!-- TODAY'S APPOINTMENTS TAB -->
+<div id="today" class="tab-content active">
+  <h3>Today's Schedule</h3>
+  <table class="schedule-table">
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Status</th>
+        <th>Patient</th>
+        <th>Problem</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in schedule %}
+        {% if s.status == 'Booked' %}
+          <tr class="booked clickable" onclick="showPatientDetails('{{ s.appt_id }}')">
+            <td>{{ s.time }}</td>
+            <td>⏰ Booked</td>
+            <td>{{ s.patient }}</td>
+            <td>{{ s.problem }}</td>
+          </tr>
+        {% else %}
+          <tr class="available">
+            <td>{{ s.time }}</td>
+            <td>✅ Available</td>
+            <td>-</td>
+            <td>-</td>
+          </tr>
+        {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- EMERGENCY TAB -->
+<div id="emergency" class="tab-content">
+  <h3>Emergency Cases</h3>
+  <ul>
+    {% for e in emergencies %}
+      <li>
+        {{ e.get('time') or e.get('Time') or '-' }} —
+        {{ e.get('patient_name') or e.get('Patient Name') or e.get('patient') or e.get('Patient') or 'Unknown' }} —
+        {{ e.get('problem') or e.get('Problem') or '-' }}
+      </li>
+    {% else %}
+      <li>No emergencies reported.</li>
+    {% endfor %}
+  </ul>
+</div>
+
+<!-- REFERRALS TAB -->
+<div id="referrals" class="tab-content">
+  <h3>Incoming Referrals</h3>
+  <ul>
+    {% for i in incoming %}
+      <li>
+        {{ i.get('date') or i.get('Date') or '-' }} —
+        {{ i.get('patient_name') or i.get('Patient Name') or 'Unknown' }} 
+        (From Dr. {{ i.get('referred_by') or i.get('from_doc_id') or i.get('from_doc') or 'Unknown' }}) —
+        {{ i.get('notes') or i.get('Notes') or '-' }}
+      </li>
+    {% else %}
+      <li>No referrals yet.</li>
+    {% endfor %}
+  </ul>
+
+  <h3>Create Referral</h3>
+  <form method="post" action="/doctor/create_referral">
+    <input name="patient_id" placeholder="Patient ID" required>
+    <select name="to_doc_id" required>
+      {% for id, doc in other_docs.items() %}
+        <option value="{{ id }}">Dr. {{ doc.name }}</option>
+      {% endfor %}
+    </select>
+    <textarea name="notes" placeholder="Referral Notes"></textarea>
+    <button class="btn primary">Send Referral</button>
+  </form>
+</div>
+
+<!-- REPORTS TAB -->
+<div id="reports" class="tab-content">
+  <h3>Upload Report (Note or File)</h3>
+  <form method="post" action="/doctor/upload_report" enctype="multipart/form-data">
+    <input name="patient_id" placeholder="Patient ID" required>
+    <textarea name="details" placeholder="Enter report details or summary..."></textarea>
+    <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png">
+    <button class="btn success">Upload Report</button>
+  </form>
+  <p style="margin-top:10px;font-size:0.9em;color:#555;">
+    You can upload either a note, a file, or both.<br>
+    Accepted formats: PDF, JPG, JPEG, PNG.
+  </p>
+</div>
+
+<!-- MODAL FOR PATIENT DETAILS -->
+<div id="patientModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeModal()">&times;</span>
+    <h3>Patient Details</h3>
+    <div id="patientDetails">Loading...</div>
+    <div id="deleteBtnContainer" style="margin-top:20px; text-align:right;"></div>
+  </div>
+</div>
+
+{% raw %}
+<script>
+function showTab(tabId) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.tab-btn[onclick="showTab('${tabId}')"]`).classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+
+// Fetch and show patient details in modal (existing API)
+function showPatientDetails(apptId) {
+  fetch(`/api/patient_details/${apptId}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        alert(data.error);
+        return;
+      }
+
+      const reportsHtml = data.reports.length
+        ? data.reports.map(r => {
+            let content = `<div><b>${r.Date}</b> — Dr. ${r.Doctor || r.Doctor || ''}<br>`;
+            if (r.Details) content += `${r.Details}<br>`;
+            if (r.File) content += `<a href="/uploads/${r.File}" target="_blank">📎 Download ${r.File}</a>`;
+            return content + "</div>";
+          }).join('')
+        : '<p>No past reports found.</p>';
+
+      document.getElementById('patientDetails').innerHTML = `
+        <p><strong>Patient ID:</strong> ${data.patient_id}</p>
+        <p><strong>Name:</strong> ${data.name}</p>
+        <p><strong>Age:</strong> ${data.age}</p>
+        <p><strong>Gender:</strong> ${data.gender}</p>
+        <p><strong>Problem:</strong> ${data.problem}</p>
+        <p><strong>Date:</strong> ${data.date}</p>
+        <p><strong>Time:</strong> ${data.time}</p>
+        <hr>
+        <h4>Past Reports</h4>
+        ${reportsHtml}
+      `;
+
+      document.getElementById('deleteBtnContainer').innerHTML = `
+        <button class="btn danger" onclick="deleteAppointment('${apptId}')">Delete Appointment</button>
+      `;
+
+      document.getElementById('patientModal').style.display = 'block';
+    });
+}
+
+function deleteAppointment(apptId) {
+  if (!confirm("Are you sure you want to delete this appointment?")) return;
+
+  fetch(`/api/delete_appointment/${apptId}`, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(res => {
+      alert(res.message);
+      closeModal();
+      location.reload();
+    });
+}
+
+function closeModal() {
+  document.getElementById('patientModal').style.display = 'none';
+}
+</script>
+{% endraw %}
+
+<style>
+.tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+.tab-btn { background: #e5e7eb; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+.tab-btn.active { background: #3b82f6; color: white; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Modal styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 2000;
+  left: 0; top: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  overflow: auto;
+}
+.modal-content {
+  background: white;
+  margin: 10% auto;
+  padding: 20px;
+  border-radius: 12px;
+  width: 80%;
+  max-width: 600px;
+}
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.schedule-table th, .schedule-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+
+.schedule-table th {
+  background-color: #2563eb;
+  color: white;
+}
+
+.schedule-table tr.booked {
+  background-color: #fee2e2;
+}
+
+.schedule-table tr.available {
+  background-color: #dcfce7;
+}
+
+/* clickable row */
+.clickable { cursor: pointer; }
+
+.close {
+  float: right;
+  font-size: 24px;
+  cursor: pointer;
+}
+.close:hover { color: red; }
+</style>
+{% endblock %}
