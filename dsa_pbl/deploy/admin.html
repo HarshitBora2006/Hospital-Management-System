@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<h2>Admin Dashboard</h2>
+
+<!-- ADD DOCTOR SECTION -->
+<section class="card">
+  <h3>Add New Doctor</h3>
+  <form method="post" action="/admin/add_doctor" class="form-grid">
+    <input name="name" placeholder="Doctor Name" required>
+    <input name="specialty" placeholder="Specialty" required>
+    <input name="password" type="password" placeholder="Password" required>
+    <button class="btn primary" type="submit">Add Doctor</button>
+  </form>
+</section>
+
+<!-- EXISTING DOCTORS SECTION -->
+<section class="card">
+  <h3>Existing Doctors</h3>
+  <ul class="doctor-list">
+    {% for id, doc in doctors.items() %}
+      <li>👨‍⚕️ <strong>Dr. {{ doc.name }}</strong> — {{ doc.specialty }} <small>(ID: {{ id }})</small></li>
+    {% else %}
+      <li>No doctors have been added yet.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<!-- PATIENT GRAPH SECTION -->
+<section class="card">
+  <h3>Patient Visits Per Day</h3>
+  <canvas id="chart" width="600" height="300"></canvas>
+</section>
+
+<!-- Chart.js Library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+fetch('/api/patient_counts')
+  .then(r => r.json())
+  .then(d => {
+    if (!d.dates.length) {
+      document.getElementById('chart').outerHTML = "<p>No appointment data available.</p>";
+      return;
+    }
+
+    new Chart(document.getElementById('chart'), {
+      type: 'bar',
+      data: {
+        labels: d.dates,
+        datasets: [{
+          label: 'Patients per Day',
+          data: d.counts,
+          backgroundColor: 'rgba(37, 99, 235, 0.6)',
+          borderColor: '#2563eb',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: 'Number of Patients' } },
+          x: { title: { display: true, text: 'Date' } }
+        },
+        plugins: {
+          legend: { display: true, position: 'top' },
+          title: { display: false }
+        }
+      }
+    });
+  });
+</script>
+
+<style>
+h2 {
+  text-align: center;
+  color: #2563eb;
+  margin-bottom: 25px;
+}
+
+.card {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 25px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.form-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.form-grid input {
+  flex: 1;
+  min-width: 180px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+.btn.primary {
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.btn.primary:hover {
+  background: #1d4ed8;
+}
+
+.doctor-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.doctor-list li {
+  background: white;
+  border: 1px solid #e5e7eb;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+canvas {
+  display: block;
+  margin: 20px auto;
+}
+</style>
+{% endblock %}

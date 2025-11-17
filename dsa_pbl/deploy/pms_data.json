@@ -1,0 +1,13 @@
+{
+    "users": {
+        "admin": {
+            "password": "adminpass",
+            "role": "Admin"
+        }
+    },
+    "patients": {},
+    "doctors": {},
+    "appointments": [],
+    "reports": {},
+    "referrals": []
+}
