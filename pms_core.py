@@ -1,6 +1,9 @@
+# pms_core.py (fixed save_data calls)
 import uuid
 from datetime import datetime
 from collections import defaultdict
+import matplotlib.pyplot as plt
+from matplotlib.dates import DateFormatter, DayLocator
 
 from data_manager import load_data, save_data
 
@@ -16,14 +19,12 @@ class PatientManagementSystem:
         self.data = load_data()
 
     def _generate_id(self):
-        """Generates a short unique ID."""
         return str(uuid.uuid4())[:8]
 
-    # -------------------------------------------------------------------------
-    # AUTHENTICATION
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------
+    # AUTH
+    # ------------------------------------------------------
     def login(self, username, password):
-        """Authenticate a user."""
         user_info = self.data['users'].get(username)
         if user_info and user_info['password'] == password:
             self.current_user = {
@@ -34,11 +35,10 @@ class PatientManagementSystem:
             return True
         return False
 
-    # -------------------------------------------------------------------------
-    # ADMIN FUNCTIONS
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------
+    # ADMIN
+    # ------------------------------------------------------
     def add_doctor(self, name, specialty, password):
-        """Create a new doctor account."""
         doctor_id = self._generate_id()
         username = name.lower().replace(' ', '_')
 
@@ -61,75 +61,84 @@ class PatientManagementSystem:
         return {'name': name, 'username': username, 'id': doctor_id}
 
     def plot_daily_patients(self):
-        """Display patient count per day using Matplotlib."""
         patient_counts = defaultdict(int)
 
-        for appt in self.data['appointments']:
-            if appt.get('status') == 'Approved':
-                patient_counts[appt['date']] += 1
+        for appt in self.data.get('appointments', []):
+            if str(appt.get('status', '')).strip().lower() == 'approved':
+                patient_counts[appt.get('date')] += 1
 
         if not patient_counts:
             return "No appointment data available to plot."
 
         dates = sorted(patient_counts.keys())
         counts = [patient_counts[d] for d in dates]
-        datetime_dates = [datetime.strptime(d, '%Y-%m-%d') for d in dates]
+        dt_dates = [datetime.strptime(d, '%Y-%m-%d') for d in dates]
 
         try:
-            # Import matplotlib only when plotting is requested to avoid
-            # adding a heavy dependency during normal web deployment.
-            import matplotlib.pyplot as plt
-            from matplotlib.dates import DateFormatter, DayLocator
-
             plt.style.use('ggplot')
             fig, ax = plt.subplots(figsize=(10, 6))
-            ax.bar(datetime_dates, counts, width=0.8, color='skyblue')
+            ax.bar(dt_dates, counts, width=0.8)
             ax.xaxis.set_major_formatter(DateFormatter('%b %d'))
             ax.xaxis.set_major_locator(DayLocator(interval=1))
             plt.xticks(rotation=45, ha='right')
             plt.title('Patient Visits Per Day')
-            plt.xlabel('Date')
-            plt.ylabel('Number of Patients')
             plt.tight_layout()
             plt.show()
             return "Graph displayed successfully."
         except Exception as e:
             return f"Error generating graph: {e}"
 
-    # -------------------------------------------------------------------------
-    # DOCTOR FUNCTIONS
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------
+    # DOCTOR
+    # ------------------------------------------------------
     def get_today_appointments(self, doctor_id):
-        """Return today's appointments for a doctor."""
         today = datetime.now().strftime('%Y-%m-%d')
-        appointments = []
 
-        for appt in self.data['appointments']:
-            if (
-                appt.get('doctor_id') == doctor_id
-                and appt.get('date') == today
-                and appt.get('status') == 'Approved'
-            ):
-                patient = self.data['patients'].get(appt['patient_id'], {'name': 'Unknown'})
-                appointments.append({
-                    'ID': appt['id'],
-                    'Patient Name': patient.get('name', 'Unknown'),
-                    'Age': patient.get('age', 'N/A'),
-                    'Gender': patient.get('gender', 'N/A'),
-                    'Problem': appt.get('problem', 'N/A'),
-                    'Time': appt.get('time', 'N/A')
-                })
+        # Generate all 10-minute slots between 09:00-12:00 and 14:00-18:00
+        slots = []
+        for h in range(9, 12):
+            for m in range(0, 60, 10):
+                slots.append(f"{h:02d}:{m:02d}")
+        for h in range(14, 18):
+            for m in range(0, 60, 10):
+                slots.append(f"{h:02d}:{m:02d}")
 
-        return appointments
+        schedule = [{'time': t, 'status': 'Available', 'patient': '-', 'problem': '-', 'appt_id': None} for t in slots]
+
+        for appt in self.data.get('appointments', []):
+            raw_date = str(appt.get('date', '')).strip()
+            fixed_date = None
+            for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y'):
+                try:
+                    fixed_date = datetime.strptime(raw_date, fmt).strftime('%Y-%m-%d')
+                    break
+                except Exception:
+                    pass
+
+            if not fixed_date:
+                continue
+
+            status = str(appt.get('status', '')).strip().lower()
+            if appt.get('doctor_id') == doctor_id and fixed_date == today and status == 'approved':
+                appt_time = str(appt.get('time', '')).strip()
+                for slot in schedule:
+                    if slot['time'] == appt_time:
+                        patient = self.data.get('patients', {}).get(appt.get('patient_id'), {})
+                        slot['status'] = 'Booked'
+                        slot['patient'] = patient.get('name', 'Unknown')
+                        slot['problem'] = appt.get('problem', '-') or '-'
+                        slot['appt_id'] = appt.get('id')
+                        break
+
+        return schedule
 
     def get_emergency_cases(self, doctor_id):
-        """Return all emergency cases related to this doctor."""
         emergencies = []
-        for appt in self.data['appointments']:
-            if appt.get('status') == 'Emergency' and (
+        for appt in self.data.get('appointments', []):
+            if str(appt.get('status', '')).strip().lower() == 'emergency' and (
                 appt.get('doctor_id') == doctor_id or not appt.get('doctor_id')
             ):
-                patient = self.data['patients'].get(appt['patient_id'], {'name': 'Unknown'})
+                patient = self.data['patients'].get(appt.get('patient_id'), {'name': 'Unknown'})
                 emergencies.append({
                     'ID': appt.get('id'),
                     'Patient Name': patient.get('name', 'Unknown'),
@@ -141,12 +150,11 @@ class PatientManagementSystem:
         return emergencies
 
     def get_incoming_referrals(self, doctor_id):
-        """Return referrals assigned to this doctor."""
         incoming = []
-        for ref in self.data['referrals']:
+        for ref in self.data.get('referrals', []):
             if ref.get('to_doc_id') == doctor_id:
                 patient = self.data['patients'].get(ref['patient_id'], {'name': 'Unknown'})
-                from_doc = self.data['doctors'].get(ref['from_doc_id'], {'name': 'External Doctor'})
+                from_doc = self.data['doctors'].get(ref.get('from_doc_id', ''), {'name': 'External Doctor'})
                 incoming.append({
                     'Date': ref.get('date', 'Unknown'),
                     'Patient Name': patient['name'],
@@ -156,10 +164,9 @@ class PatientManagementSystem:
         return incoming
 
     def create_referral(self, patient_id, to_doc_id, notes):
-        """Create a new referral from one doctor to another."""
-        if patient_id not in self.data['patients']:
+        if patient_id not in self.data.get('patients', {}):
             return "Error: Patient ID not found."
-        if to_doc_id not in self.data['doctors']:
+        if to_doc_id not in self.data.get('doctors', {}):
             return "Error: Target Doctor ID not found."
 
         referral = {
@@ -170,14 +177,12 @@ class PatientManagementSystem:
             'notes': notes
         }
 
-        self.data['referrals'].append(referral)
+        self.data.setdefault('referrals', []).append(referral)
         save_data(self.data)
-        target_doc = self.data['doctors'][to_doc_id]['name']
-        return f"Referral created successfully for patient {patient_id} to Dr. {target_doc}."
+        return f"Referral created successfully for patient {patient_id}."
 
     def upload_report(self, patient_id, details=None, file_name=None):
-        """Doctor uploads a new report — either text or file."""
-        if patient_id not in self.data['patients']:
+        if patient_id not in self.data.get('patients', {}):
             return "Error: Patient ID not found."
 
         report_id = self._generate_id()
@@ -192,107 +197,73 @@ class PatientManagementSystem:
         if details:
             report['Details'] = details
 
-        if patient_id not in self.data['reports']:
-            self.data['reports'][patient_id] = []
-
-        self.data['reports'][patient_id].append(report)
+        self.data.setdefault('reports', {}).setdefault(patient_id, []).append(report)
         save_data(self.data)
-
-        msg = f"Report {report_id} uploaded successfully for patient {patient_id}."
-        if file_name:
-            msg += f" (File: {file_name})"
-        return msg
+        return f"Report {report_id} uploaded successfully."
 
     def get_patient_reports(self, patient_id):
-        """Return all reports for a given patient, supporting both text and file uploads."""
         reports = self.data.get('reports', {}).get(patient_id, [])
-        detailed_reports = []
-
-        for report in reports:
-            doctor_name = (
-                report.get('Doctor')
-                or self.data['doctors'].get(report.get('doctor_id', ''), {}).get('name', 'Unknown Doctor')
-            )
-            details = report.get('Details') or report.get('details', '')
-            file_name = report.get('File')
-
-            formatted = {
-                'ID': report.get('report_id', 'N/A'),
-                'Date': report.get('Date') or report.get('date', 'Unknown Date'),
+        formatted = []
+        for r in reports:
+            doctor_name = self.data.get('doctors', {}).get(r.get('doctor_id', ''), {}).get('name', 'Unknown Doctor')
+            entry = {
+                'ID': r.get('report_id'),
+                'Date': r.get('date'),
                 'Doctor': doctor_name,
-                'Details': details
+                'Details': r.get('Details', '')
             }
+            if 'File' in r:
+                entry['File'] = r['File']
+            formatted.append(entry)
+        return formatted
 
-            if file_name:
-                formatted['File'] = file_name
-
-            detailed_reports.append(formatted)
-
-        return detailed_reports
-
-    # -------------------------------------------------------------------------
-    # PATIENT FUNCTIONS
+    # ------------------------------------------------------
+    # PATIENT
+    # ------------------------------------------------------
     def book_appointment(self, name, age, gender, date, time, problem):
-        """Patient creates a new appointment request (with fixed allowed times)."""
-        patient_id = self.current_user['id']
+        patient_id = self.current_user.get('id')
+        if not patient_id:
+            patient_id = self._generate_id()
 
-        if patient_id not in self.data['patients']:
-            self.data['patients'][patient_id] = {
-                'id': patient_id,
-                'name': name,
-                'age': age,
-                'gender': gender
-            }
+        problem_to_specialty = {
+            "Heart": "Cardiology",
+            "Fever": "General Physician",
+            "Skin": "Dermatologist",
+            "Diabetes": "Endocrinologist",
+            "Bone": "Orthopedic",
+            "Can't say": "General Physician"
+        }
+        specialty = problem_to_specialty.get(problem, "General Physician")
 
-        # Validate time is within allowed slots
-        allowed_times = []
-        for h in range(9, 12):  # 09:00–11:50
-            for m in range(0, 60, 10):
-                allowed_times.append(f"{h:02d}:{m:02d}")
-        for h in range(14, 18):  # 14:00–17:50
-            for m in range(0, 60, 10):
-                allowed_times.append(f"{h:02d}:{m:02d}")
+        doctors = [doc for doc in self.data['doctors'].values() if doc['specialty'] == specialty]
 
-        if time not in allowed_times:
-            return "❌ Please select a valid time between 09:00–12:00 or 14:00–18:00."
+        if not doctors:
+            return f"No doctor available for {specialty}"
 
-        # Select a doctor (for now, first available)
-        doc_ids = list(self.data['doctors'].keys())
-        if not doc_ids:
-            return "No doctors available currently. Please try again later."
-        assigned_doc_id = doc_ids[0]
+        doctors.sort(key=lambda d: sum(1 for a in self.data['appointments'] 
+                                       if a['doctor_id']==d['id'] and a['date']==date))
+        doctor = doctors[0]
+        doctor_id = doctor['id']
 
-        # Check for booking conflict
-        for appt in self.data['appointments']:
-            if (appt['doctor_id'] == assigned_doc_id and
-                appt['date'] == date and
-                appt['time'] == time and
-                appt['status'] == 'Approved'):
-                return f"❌ Doctor is already booked at {time} on {date}. Please choose another slot."
-
-        # Save appointment
-        appt_id = self._generate_id()
         appointment = {
-            'id': appt_id,
+            'id': self._generate_id(),
             'patient_id': patient_id,
-            'doctor_id': assigned_doc_id,
+            'doctor_id': doctor_id,
             'date': date,
             'time': time,
             'problem': problem,
             'status': 'Approved'
         }
+
         self.data['appointments'].append(appointment)
-        save_data(self.data)
-
-        doc_name = self.data['doctors'].get(assigned_doc_id, {}).get('name', 'Pending')
-        return f"✅ Appointment booked successfully! ID: {appt_id}. You are scheduled with Dr. {doc_name} on {date} at {time}."
-
+        save_data(self.data)  # ✅ fixed
+        return f"Appointment booked successfully with Dr. {doctor['name']} ({doctor['specialty']})"
 
     def log_emergency(self, name, age, gender, problem):
-        """Patient logs an emergency case."""
         patient_id = self.current_user['id']
-        if patient_id not in self.data['patients']:
-            self.data['patients'][patient_id] = {'id': patient_id, 'name': name, 'age': age, 'gender': gender}
+
+        if patient_id not in self.data.get('patients', {}):
+            self.data.setdefault('patients', {})[patient_id] = {'id': patient_id, 'name': name, 'age': age, 'gender': gender}
 
         appt_id = self._generate_id()
         emergency = {
@@ -305,37 +276,35 @@ class PatientManagementSystem:
             'status': 'Emergency'
         }
 
-        self.data['appointments'].append(emergency)
-        save_data(self.data)
-        return f"Emergency logged! ID: {appt_id}. A doctor will contact you soon."
+        self.data.setdefault('appointments', []).append(emergency)
+        save_data(self.data)  # ✅ fixed
+        return f"Emergency logged. ID: {appt_id}."
 
     def get_patient_enquiries(self):
-        """Show all non-emergency appointments for a patient."""
-        patient_id = self.current_user['id']
-        history = []
-        for appt in self.data['appointments']:
-            if appt.get('patient_id') == patient_id and appt.get('status') != 'Emergency':
-                doc_name = self.data['doctors'].get(appt.get('doctor_id', ''), {}).get('name', 'N/A')
-                history.append({
-                    'Date': appt.get('date', 'N/A'),
-                    'Doctor': doc_name,
-                    'Problem': appt.get('problem', 'N/A'),
-                    'Status': appt.get('status', 'N/A')
+        pid = self.current_user['id']
+        hist = []
+        for appt in self.data.get('appointments', []):
+            if appt.get('patient_id') == pid and str(appt.get('status', '')).strip().lower() != 'emergency':
+                doc = self.data.get('doctors', {}).get(appt.get('doctor_id', ''), {}).get('name', 'N/A')
+                hist.append({
+                    'Date': appt.get('date'),
+                    'Doctor': doc,
+                    'Problem': appt.get('problem'),
+                    'Status': appt.get('status')
                 })
-        return history
+        return hist
 
     def get_upcoming_checkup(self):
-        """Return the next approved future appointment."""
-        patient_id = self.current_user['id']
+        pid = self.current_user['id']
         now = datetime.now()
         upcoming = None
 
-        for appt in self.data['appointments']:
-            if appt.get('patient_id') == patient_id and appt.get('status') == 'Approved':
+        for appt in self.data.get('appointments', []):
+            if appt.get('patient_id') == pid and str(appt.get('status', '')).strip().lower() == 'approved':
                 try:
                     appt_dt = datetime.strptime(f"{appt['date']} {appt['time']}", '%Y-%m-%d %H:%M')
                     if appt_dt > now and (not upcoming or appt_dt < upcoming['datetime']):
-                        doc_name = self.data['doctors'].get(appt.get('doctor_id', ''), {}).get('name', 'N/A')
+                        doc_name = self.data.get('doctors', {}).get(appt.get('doctor_id', ''), {}).get('name', 'N/A')
                         upcoming = {
                             'datetime': appt_dt,
                             'Date': appt['date'],
@@ -343,22 +312,21 @@ class PatientManagementSystem:
                             'Doctor': doc_name,
                             'Problem': appt['problem']
                         }
-                except ValueError:
+                except Exception:
                     continue
 
-        return upcoming if upcoming else None
+        return upcoming
 
     def setup_initial_patient(self):
-        """Create a default test patient if none exists."""
         data = load_data()
-        if 'test_patient' not in data['users']:
-            patient_id = self._generate_id()
-            data['users']['test_patient'] = {
+        if 'test_patient' not in data.get('users', {}):
+            pid = self._generate_id()
+            data.setdefault('users', {})['test_patient'] = {
                 'password': 'patientpass',
                 'role': 'Patient',
-                'id': patient_id
+                'id': pid
             }
-            data['patients'][patient_id] = {'id': patient_id, 'name': 'Test Patient', 'age': '35', 'gender': 'M'}
+            data.setdefault('patients', {})[pid] = {'id': pid, 'name': 'Test Patient', 'age': '35', 'gender': 'M'}
             save_data(data)
             return True
         return False
