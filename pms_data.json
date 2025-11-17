@@ -9,40 +9,35 @@
             "role": "Doctor",
             "id": "e92fedec"
         },
-        "test_patient": {
-            "password": "patientpass",
-            "role": "Patient",
-            "id": "85d0bba5"
-        },
         "harshit": {
             "password": "Harshit123",
             "role": "Doctor",
             "id": "bd81fda5"
         },
-        "amit": {
-            "password": "amit123",
-            "role": "Patient",
-            "id": "d1db5d7e"
-        },
         "sumit": {
-            "password": "sumit098",
-            "role": "Patient",
-            "id": "51214f3a"
-        },
-        "nagendra": {
-            "password": "Rana123",
-            "role": "Patient",
-            "id": "a1c6a3cd"
-        },
-        "surya": {
-            "password": "chuha123",
-            "role": "Patient",
-            "id": "97d6355f"
-        },
-        "nagendra_singh_rana": {
-            "password": "Nagendra6969",
+            "password": "Sumit123",
             "role": "Doctor",
             "id": "0b40c774"
+        },
+        "nagendra": {
+            "password": "Nagendra123",
+            "role": "Doctor",
+            "id": "a1b2c3d4"
+        },
+        "suryansh": {
+            "password": "Suryansh123",
+            "role": "Doctor",
+            "id": "f5g6h7i8"
+        },
+        "test_patient": {
+            "password": "patientpass",
+            "role": "Patient",
+            "id": "c08f9295"
+        },
+        "amitk": {
+            "password": "amit123",
+            "role": "Patient",
+            "id": "152dd6f1"
         }
     },
     "patients": {
@@ -75,13 +70,25 @@
             "name": "Suryansh",
             "age": "25",
             "gender": "M"
+        },
+        "c08f9295": {
+            "id": "c08f9295",
+            "name": "Test Patient",
+            "age": "35",
+            "gender": "M"
+        },
+        "152dd6f1": {
+            "id": "152dd6f1",
+            "name": "Amit Kumar",
+            "age": "20",
+            "gender": "M"
         }
     },
     "doctors": {
         "e92fedec": {
             "id": "e92fedec",
-            "name": "Deepak Kanwal",
-            "specialty": "Orthology"
+            "name": "Deepak",
+            "specialty": "Orthopedic"
         },
         "bd81fda5": {
             "id": "bd81fda5",
@@ -90,36 +97,37 @@
         },
         "0b40c774": {
             "id": "0b40c774",
-            "name": "Nagendra Singh Rana",
-            "specialty": "Gynecologist"
+            "name": "Sumit",
+            "specialty": "Dermatologist"
+        },
+        "a1b2c3d4": {
+            "id": "a1b2c3d4",
+            "name": "Nagendra",
+            "specialty": "Endocrinologist"
+        },
+        "f5g6h7i8": {
+            "id": "f5g6h7i8",
+            "name": "Suryansh",
+            "specialty": "General Physician"
         }
     },
     "appointments": [
         {
-            "id": "925cb094",
-            "patient_id": "d1db5d7e",
+            "id": "4c2acff4",
+            "patient_id": "97d6355f",
             "doctor_id": "e92fedec",
-            "date": "2025-11-09",
-            "time": "10:19",
-            "problem": "fracture in leg",
+            "date": "2025-11-18",
+            "time": "09:00",
+            "problem": "fracture",
             "status": "Approved"
         },
         {
-            "id": "3f21931a",
-            "patient_id": "51214f3a",
-            "doctor_id": null,
-            "date": "2025-11-09",
-            "time": "02:22",
-            "problem": "Heart Attack",
-            "status": "Emergency"
-        },
-        {
-            "id": "0ca157cb",
-            "patient_id": "a1c6a3cd",
-            "doctor_id": "e92fedec",
-            "date": "2025-11-09",
+            "id": "bdf5014a",
+            "patient_id": "152dd6f1",
+            "doctor_id": "bd81fda5",
+            "date": "2025-11-18",
             "time": "09:00",
-            "problem": "Joint disslocate",
+            "problem": "Heart",
             "status": "Approved"
         }
     ],
