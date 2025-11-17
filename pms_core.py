@@ -1,24 +1,25 @@
-# pms_core.py (fixed save_data calls)
+# pms_core.py
 import uuid
 from datetime import datetime
 from collections import defaultdict
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter, DayLocator
-
 from data_manager import load_data, save_data
 
 
 class PatientManagementSystem:
-    """Handles all core logic and state management for the PMS."""
+    """Core logic and state management for the Patient Management System."""
 
     def __init__(self):
         self.data = load_data()
         self.current_user = None
 
     def reload(self):
+        """Reload data from storage."""
         self.data = load_data()
 
     def _generate_id(self):
+        """Generate a short unique ID."""
         return str(uuid.uuid4())[:8]
 
     # ------------------------------------------------------
@@ -61,6 +62,9 @@ class PatientManagementSystem:
         return {'name': name, 'username': username, 'id': doctor_id}
 
     def plot_daily_patients(self):
+        """
+        Plot a bar chart showing number of approved patients per day.
+        """
         patient_counts = defaultdict(int)
 
         for appt in self.data.get('appointments', []):
@@ -82,6 +86,8 @@ class PatientManagementSystem:
             ax.xaxis.set_major_locator(DayLocator(interval=1))
             plt.xticks(rotation=45, ha='right')
             plt.title('Patient Visits Per Day')
+            plt.xlabel('Date')
+            plt.ylabel('Number of Patients')
             plt.tight_layout()
             plt.show()
             return "Graph displayed successfully."
@@ -94,7 +100,7 @@ class PatientManagementSystem:
     def get_today_appointments(self, doctor_id):
         today = datetime.now().strftime('%Y-%m-%d')
 
-        # Generate all 10-minute slots between 09:00-12:00 and 14:00-18:00
+        # 10-minute slots between 09:00-12:00 and 14:00-18:00
         slots = []
         for h in range(9, 12):
             for m in range(0, 60, 10):
@@ -106,27 +112,15 @@ class PatientManagementSystem:
         schedule = [{'time': t, 'status': 'Available', 'patient': '-', 'problem': '-', 'appt_id': None} for t in slots]
 
         for appt in self.data.get('appointments', []):
-            raw_date = str(appt.get('date', '')).strip()
-            fixed_date = None
-            for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y'):
-                try:
-                    fixed_date = datetime.strptime(raw_date, fmt).strftime('%Y-%m-%d')
-                    break
-                except Exception:
-                    pass
-
-            if not fixed_date:
-                continue
-
             status = str(appt.get('status', '')).strip().lower()
-            if appt.get('doctor_id') == doctor_id and fixed_date == today and status == 'approved':
+            if appt.get('doctor_id') == doctor_id and appt.get('date') == today and status == 'approved':
                 appt_time = str(appt.get('time', '')).strip()
                 for slot in schedule:
                     if slot['time'] == appt_time:
                         patient = self.data.get('patients', {}).get(appt.get('patient_id'), {})
                         slot['status'] = 'Booked'
                         slot['patient'] = patient.get('name', 'Unknown')
-                        slot['problem'] = appt.get('problem', '-') or '-'
+                        slot['problem'] = appt.get('problem', '-')
                         slot['appt_id'] = appt.get('id')
                         break
 
@@ -234,7 +228,6 @@ class PatientManagementSystem:
             "Can't say": "General Physician"
         }
         specialty = problem_to_specialty.get(problem, "General Physician")
-
         doctors = [doc for doc in self.data['doctors'].values() if doc['specialty'] == specialty]
 
         if not doctors:
@@ -255,8 +248,8 @@ class PatientManagementSystem:
             'status': 'Approved'
         }
 
-        self.data['appointments'].append(appointment)
-        save_data(self.data)  # ✅ fixed
+        self.data.setdefault('appointments', []).append(appointment)
+        save_data(self.data)
         return f"Appointment booked successfully with Dr. {doctor['name']} ({doctor['specialty']})"
 
     def log_emergency(self, name, age, gender, problem):
@@ -277,7 +270,7 @@ class PatientManagementSystem:
         }
 
         self.data.setdefault('appointments', []).append(emergency)
-        save_data(self.data)  # ✅ fixed
+        save_data(self.data)
         return f"Emergency logged. ID: {appt_id}."
 
     def get_patient_enquiries(self):
