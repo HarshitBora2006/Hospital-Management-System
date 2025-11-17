@@ -2,8 +2,6 @@
 import uuid
 from datetime import datetime
 from collections import defaultdict
-import matplotlib.pyplot as plt
-from matplotlib.dates import DateFormatter, DayLocator
 from data_manager import load_data, save_data
 
 
@@ -61,43 +59,11 @@ class PatientManagementSystem:
         save_data(self.data)
         return {'name': name, 'username': username, 'id': doctor_id}
 
-    def plot_daily_patients(self):
-        """
-        Plot a bar chart showing number of approved patients per day.
-        """
-        patient_counts = defaultdict(int)
-
-        for appt in self.data.get('appointments', []):
-            if str(appt.get('status', '')).strip().lower() == 'approved':
-                patient_counts[appt.get('date')] += 1
-
-        if not patient_counts:
-            return "No appointment data available to plot."
-
-        dates = sorted(patient_counts.keys())
-        counts = [patient_counts[d] for d in dates]
-        dt_dates = [datetime.strptime(d, '%Y-%m-%d') for d in dates]
-
-        try:
-            plt.style.use('ggplot')
-            fig, ax = plt.subplots(figsize=(10, 6))
-            ax.bar(dt_dates, counts, width=0.8)
-            ax.xaxis.set_major_formatter(DateFormatter('%b %d'))
-            ax.xaxis.set_major_locator(DayLocator(interval=1))
-            plt.xticks(rotation=45, ha='right')
-            plt.title('Patient Visits Per Day')
-            plt.xlabel('Date')
-            plt.ylabel('Number of Patients')
-            plt.tight_layout()
-            plt.show()
-            return "Graph displayed successfully."
-        except Exception as e:
-            return f"Error generating graph: {e}"
-
     # ------------------------------------------------------
     # DOCTOR
     # ------------------------------------------------------
     def get_today_appointments(self, doctor_id):
+        """Return the schedule for today with booked appointments for a given doctor."""
         today = datetime.now().strftime('%Y-%m-%d')
 
         # 10-minute slots between 09:00-12:00 and 14:00-18:00
@@ -112,13 +78,26 @@ class PatientManagementSystem:
         schedule = [{'time': t, 'status': 'Available', 'patient': '-', 'problem': '-', 'appt_id': None} for t in slots]
 
         for appt in self.data.get('appointments', []):
+            # Normalize date to YYYY-MM-DD
+            raw_date = str(appt.get('date', '')).strip()
+            fixed_date = None
+            for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y'):
+                try:
+                    fixed_date = datetime.strptime(raw_date, fmt).strftime('%Y-%m-%d')
+                    break
+                except:
+                    continue
+            if not fixed_date:
+                continue
+
+            # Check if appointment is for today and for this doctor
             status = str(appt.get('status', '')).strip().lower()
-            if appt.get('doctor_id') == doctor_id and appt.get('date') == today and status == 'approved':
+            if appt.get('doctor_id') == doctor_id and fixed_date == today and status in ['approved', 'emergency']:
                 appt_time = str(appt.get('time', '')).strip()
                 for slot in schedule:
                     if slot['time'] == appt_time:
                         patient = self.data.get('patients', {}).get(appt.get('patient_id'), {})
-                        slot['status'] = 'Booked'
+                        slot['status'] = 'Booked' if status == 'approved' else 'Emergency'
                         slot['patient'] = patient.get('name', 'Unknown')
                         slot['problem'] = appt.get('problem', '-')
                         slot['appt_id'] = appt.get('id')
