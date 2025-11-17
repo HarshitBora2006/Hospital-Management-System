@@ -1,0 +1,26 @@
+# Minimal requirements.txt for Render. Edit to match your project: uncomment the framework you use
+# and add any other dependencies your app requires.
+
+# Gunicorn is recommended for running WSGI apps on Render
+gunicorn==20.1.0
+
+# Helpful utilities
+python-dotenv==1.0.0
+requests==2.31.0
+
+# If your app uses Flask, uncomment:
+Flask==2.3.2
+
+# If your app uses Django, uncomment:
+# Django==4.2.6
+
+# If your app uses FastAPI, uncomment:
+# fastapi==0.99.1
+# uvicorn[standard]==0.22.0
+
+# Common DB drivers / ORMs — uncomment as needed:
+# psycopg2-binary==2.9.7
+# SQLAlchemy==2.1.0
+
+# Pin setuptools to avoid pkg_resources deprecation warning on some platforms
+setuptools<81

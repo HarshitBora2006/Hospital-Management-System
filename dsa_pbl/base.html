@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}PMS{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('serve_css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <!-- Top Navigation Bar -->
+  <div class="topbar">
+    <div>
+      <a href="/">🏥 DEEPCARE HOSPITAL</a>
+    </div>
+    <div>
+      {% if session.get('role') == 'Admin' %}
+        <a href="{{ url_for('admin_dashboard') }}">Admin</a>
+      {% elif session.get('role') == 'Doctor' %}
+        <a href="{{ url_for('doctor_dashboard') }}">Doctor</a>
+      {% elif session.get('role') == 'Patient' %}
+        <a href="{{ url_for('patient_dashboard') }}">Patient</a>
+      {% endif %}
+      {% if session.get('username') %}
+        <a href="{{ url_for('logout') }}">Logout</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Page Content Container -->
+  <div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    
+    {% block content %}{% endblock %}
+  </div>
+
+</body>
+</html>
