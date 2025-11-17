@@ -9,6 +9,7 @@ python-dotenv==1.0.0
 requests==2.31.0
 
 # If your app uses Flask, uncomment:
+# If your app uses Flask, ensure Flask is installed
 Flask==2.3.2
 
 # If your app uses Django, uncomment:
