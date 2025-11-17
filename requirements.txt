@@ -11,6 +11,7 @@ requests==2.31.0
 # If your app uses Flask, uncomment:
 # If your app uses Flask, ensure Flask is installed
 Flask==2.3.2
+matplotlib==3.8.0
 
 # If your app uses Django, uncomment:
 # Django==4.2.6
@@ -25,3 +26,4 @@ Flask==2.3.2
 
 # Pin setuptools to avoid pkg_resources deprecation warning on some platforms
 setuptools<81
+
