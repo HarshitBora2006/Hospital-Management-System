@@ -1,0 +1,185 @@
+/* --- Global Styling --- */
+body {
+  font-family: 'Inter', 'Segoe UI', Arial, sans-serif; /* Switched to Inter for modern feel */
+  background: linear-gradient(135deg, #e0f2fe, #f0f9ff); /* Lighter, more subtle background */
+  margin: 0;
+  color: #1f2937; /* Slightly darker text for contrast */
+  line-height: 1.6;
+}
+
+/* --- Layout Container (Now a more defined Card) --- */
+.container {
+  max-width: 950px;
+  margin: 50px auto; /* Increased margin for better separation */
+  background: #ffffff;
+  padding: 30px 40px; /* Increased padding */
+  border-radius: 16px; /* More rounded corners */
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05); /* Deeper, softer shadow */
+}
+
+/* --- Top Navigation Bar --- */
+.topbar {
+  background: #1e40af; /* Deeper, richer primary blue */
+  color: white;
+  padding: 15px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  position: sticky; /* Sticky nav bar */
+  top: 0;
+  z-index: 1000;
+}
+
+.topbar a {
+  color: white;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 19px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  transition: background 0.3s;
+}
+
+.topbar a:hover {
+  background: #3b82f6; /* Lighter blue on hover */
+}
+
+/* --- Headings --- */
+h2 {
+  color: #1e40af; /* Primary color for main heading */
+  font-size: 2em;
+  padding-bottom: 8px;
+  border-bottom: 3px solid #60a5fa; /* Thicker, slightly lighter blue underline */
+  margin-bottom: 25px;
+}
+
+h3 {
+  color: #1f2937;
+  font-size: 1.5em;
+  margin-top: 30px;
+  margin-bottom: 15px;
+}
+
+/* --- Form Elements --- */
+form {
+  margin-bottom: 30px;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background-color: #f9fafb;
+}
+
+label {
+  font-weight: 600;
+  color: #374151;
+  display: block;
+  margin-top: 15px;
+}
+
+input, textarea, select {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px 15px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 16px;
+  background: #ffffff;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); /* Subtle blue glow on focus */
+  outline: none;
+  background: #fff;
+}
+
+textarea {
+  height: 120px;
+  resize: vertical;
+}
+
+/* --- Buttons --- */
+.btn {
+  padding: 10px 18px;
+  margin-top: 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 16px;
+  transition: all 0.3s ease-in-out;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn:hover {
+  transform: translateY(-2px); /* Lift effect on hover */
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+}
+
+.btn.primary {
+  background: #3b82f6; /* Vibrant blue */
+  color: white;
+}
+
+.btn.danger {
+  background: #ef4444; /* Brighter red */
+  color: white;
+}
+
+.btn.success {
+  background: #10b981; /* Nice green */
+  color: white;
+}
+
+/* --- Alerts / Flash Messages --- */
+.flash {
+  margin: 15px 0;
+  padding: 15px;
+  border-radius: 8px;
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.flash.success { background: #10b981; }
+.flash.danger { background: #ef4444; }
+.flash.warning { background: #f59e0b; }
+.flash.info { background: #06b6d4; }
+
+/* --- Lists (Styled as Cards) --- */
+ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+li {
+  background: #f9fafb; /* Very light background for items */
+  padding: 15px 20px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  border-left: 5px solid #3b82f6; /* A colored side border for emphasis */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease-in-out;
+  /* Added padding and flexbox for better internal layout */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+li:hover {
+  background: #eff6ff; /* Slight color change on hover */
+  transform: translateY(-1px);
+}
+
+/* --- Chart Canvas --- */
+canvas {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 15px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  margin-top: 20px;
+}
