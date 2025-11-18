@@ -105,13 +105,20 @@
   </p>
 </div>
 
-<!-- MODAL FOR PATIENT DETAILS -->
+<!-- NEW MODERN CARD-STYLE MODAL -->
 <div id="patientModal" class="modal">
-  <div class="modal-content">
+  <div class="modal-content card-modal">
     <span class="close" onclick="closeModal()">&times;</span>
-    <h3>Patient Details</h3>
-    <div id="patientDetails">Loading...</div>
-    <div id="deleteBtnContainer" style="margin-top:20px; text-align:right;"></div>
+
+    <div class="modal-header">
+      <h2>Patient Overview</h2>
+    </div>
+
+    <div id="patientCard" class="patient-card">
+      Loading...
+    </div>
+
+    <div class="modal-actions" id="modalActions"></div>
   </div>
 </div>
 
@@ -124,60 +131,70 @@ function showTab(tabId) {
   document.getElementById(tabId).classList.add('active');
 }
 
-// Fetch and show patient details in modal (existing API)
 function showPatientDetails(apptId) {
   fetch(`/api/patient_details/${apptId}`)
     .then(r => r.json())
     .then(data => {
-      if (data.error) {
-        alert(data.error);
-        return;
-      }
+      if (data.error) { alert(data.error); return; }
 
-      const reportsHtml = data.reports.length
-        ? data.reports.map(r => {
-            let content = `<div><b>${r.Date}</b> — Dr. ${r.Doctor || r.Doctor || ''}<br>`;
-            if (r.Details) content += `${r.Details}<br>`;
-            if (r.File) content += `<a href="/uploads/${r.File}" target="_blank">📎 Download ${r.File}</a>`;
-            return content + "</div>";
-          }).join('')
-        : '<p>No past reports found.</p>';
+      // Past report list
+      const history = data.reports.length
+        ? data.reports.map(r => `
+          <div class="history-item">
+            <div class="history-date">${r.Date}</div>
+            <div class="history-details">
+              ${r.Details ? `<p>${r.Details}</p>` : ""}
+              ${r.File ? `<a href="/uploads/${r.File}" target="_blank">📎 Download</a>` : ""}
+            </div>
+          </div>
+        `).join("")
+        : `<p class="empty">No medical history available.</p>`;
 
-      document.getElementById('patientDetails').innerHTML = `
-        <p><strong>Patient ID:</strong> ${data.patient_id}</p>
-        <p><strong>Name:</strong> ${data.name}</p>
-        <p><strong>Age:</strong> ${data.age}</p>
-        <p><strong>Gender:</strong> ${data.gender}</p>
-        <p><strong>Problem:</strong> ${data.problem}</p>
-        <p><strong>Date:</strong> ${data.date}</p>
-        <p><strong>Time:</strong> ${data.time}</p>
-        <hr>
-        <h4>Past Reports</h4>
-        ${reportsHtml}
+      // Fill new card layout
+      document.getElementById("patientCard").innerHTML = `
+        <div class="card-section">
+          <h3>👤 Patient Information</h3>
+          <div class="info-grid">
+            <p><strong>Name:</strong> ${data.name}</p>
+            <p><strong>Patient ID:</strong> ${data.patient_id}</p>
+            <p><strong>Age:</strong> ${data.age}</p>
+            <p><strong>Gender:</strong> ${data.gender}</p>
+          </div>
+        </div>
+
+        <div class="card-section">
+          <h3>🩺 Appointment Details</h3>
+          <div class="info-grid">
+            <p><strong>Problem:</strong> ${data.problem}</p>
+            <p><strong>Date:</strong> ${data.date}</p>
+            <p><strong>Time:</strong> ${data.time}</p>
+          </div>
+        </div>
+
+        <div class="card-section">
+          <h3>📄 Medical History</h3>
+          ${history}
+        </div>
       `;
 
-      document.getElementById('deleteBtnContainer').innerHTML = `
+      document.getElementById("modalActions").innerHTML = `
         <button class="btn danger" onclick="deleteAppointment('${apptId}')">Delete Appointment</button>
       `;
 
-      document.getElementById('patientModal').style.display = 'block';
+      document.getElementById("patientModal").style.display = "block";
     });
 }
 
 function deleteAppointment(apptId) {
   if (!confirm("Are you sure you want to delete this appointment?")) return;
 
-  fetch(`/api/delete_appointment/${apptId}`, { method: 'DELETE' })
+  fetch(`/api/delete_appointment/${apptId}`, { method: "DELETE" })
     .then(r => r.json())
-    .then(res => {
-      alert(res.message);
-      closeModal();
-      location.reload();
-    });
+    .then(res => { alert(res.message); closeModal(); location.reload(); });
 }
 
 function closeModal() {
-  document.getElementById('patientModal').style.display = 'none';
+  document.getElementById("patientModal").style.display = "none";
 }
 </script>
 {% endraw %}
@@ -189,56 +206,96 @@ function closeModal() {
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
-/* Modal styles */
+/* Modal Background */
 .modal {
   display: none;
   position: fixed;
   z-index: 2000;
-  left: 0; top: 0; width: 100%; height: 100%;
+  left: 0; top: 0;
+  width: 100%; height: 100%;
   background: rgba(0,0,0,0.5);
   overflow: auto;
 }
-.modal-content {
+
+/* New Card-Style Modal */
+.card-modal {
+  padding: 25px;
   background: white;
-  margin: 10% auto;
-  padding: 20px;
-  border-radius: 12px;
-  width: 80%;
-  max-width: 600px;
+  width: 90%;
+  max-width: 750px;
+  border-radius: 18px;
+  margin: 5% auto;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  animation: fadeIn 0.2s ease-in-out;
 }
+
+.modal-header h2 {
+  margin-bottom: 15px;
+  color: #2563eb;
+}
+
+/* Sections */
+.card-section {
+  background: #f8fafc;
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  border: 1px solid #e2e8f0;
+}
+
+.card-section h3 {
+  margin-bottom: 10px;
+  color: #1e3a8a;
+}
+
+/* 2-column info */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  row-gap: 8px;
+}
+
+/* Report History */
+.history-item {
+  border-bottom: 1px solid #ddd;
+  padding: 10px 0;
+}
+.history-date { font-weight: bold; color: #1d4ed8; }
+
+.empty { color: #64748b; font-style: italic; }
+
+/* Modal close button */
+.close {
+  float: right;
+  font-size: 25px;
+  cursor: pointer;
+}
+.close:hover { color: red; }
+
+/* Actions */
+.modal-actions {
+  text-align: right;
+  margin-top: 10px;
+}
+
+/* Table styles */
 .schedule-table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 20px;
 }
-
+.schedule-table th { background: #2563eb; color: white; }
 .schedule-table th, .schedule-table td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: center;
+  border: 1px solid #ddd; padding: 8px; text-align: center;
 }
-
-.schedule-table th {
-  background-color: #2563eb;
-  color: white;
-}
-
-.schedule-table tr.booked {
-  background-color: #fee2e2;
-}
-
-.schedule-table tr.available {
-  background-color: #dcfce7;
-}
-
-/* clickable row */
+.schedule-table tr.booked { background: #fee2e2; }
+.schedule-table tr.available { background: #dcfce7; }
 .clickable { cursor: pointer; }
 
-.close {
-  float: right;
-  font-size: 24px;
-  cursor: pointer;
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
 }
-.close:hover { color: red; }
 </style>
+
 {% endblock %}
