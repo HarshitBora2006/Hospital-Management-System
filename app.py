@@ -44,6 +44,7 @@ def login_required(role=None):
             if role and session.get('role') != role:
                 flash("Access denied.", "danger")
                 return redirect(url_for('login'))
+            # set pms.current_user from session
             pms.current_user = {
                 'username': session['username'],
                 'role': session['role'],
@@ -79,7 +80,7 @@ def signup():
 
         patient_id = pms._generate_id()
         data['users'][username] = {'password': password, 'role': 'Patient', 'id': patient_id}
-        data['patients'][patient_id] = {'id': patient_id, 'name': name, 'age': age, 'gender': gender}
+        data.setdefault('patients', {})[patient_id] = {'id': patient_id, 'name': name, 'age': age, 'gender': gender}
         save_data(data)
 
         session['username'] = username
@@ -135,10 +136,10 @@ def admin_dashboard():
     data = pms.data
     patient_counts = {}
     for appt in data.get('appointments', []):
-        if appt.get('status') == 'Approved':
+        if appt.get('status') == 'Approved' or str(appt.get('status','')).strip().lower() == 'approved':
             d = appt.get('date')
             patient_counts[d] = patient_counts.get(d, 0) + 1
-    return render_template('admin.html', doctors=data['doctors'], patient_counts=patient_counts)
+    return render_template('admin.html', doctors=data.get('doctors', {}), patient_counts=patient_counts)
 
 
 @app.route('/admin/add_doctor', methods=['POST'])
@@ -162,7 +163,7 @@ def api_patient_counts():
     data = pms.data
     counts = {}
     for appt in data.get('appointments', []):
-        if appt.get('status') == 'Approved':
+        if appt.get('status') == 'Approved' or str(appt.get('status','')).strip().lower() == 'approved':
             d = appt.get('date')
             counts[d] = counts.get(d, 0) + 1
     dates = sorted(counts.keys())
@@ -174,10 +175,8 @@ def api_patient_counts():
 @app.route('/doctor')
 @login_required(role='Doctor')
 def doctor_dashboard():
-    if session.get('role') != 'Doctor':
-        flash("Access denied!")
-        return redirect(url_for('login'))
-
+    # pms.current_user set by decorator
+    pms.reload()  # ensure we are using latest JSON
     doctor_id = session.get('id')
     today = datetime.now().strftime('%Y-%m-%d')
 
@@ -206,6 +205,7 @@ def doctor_dashboard():
 @app.route('/doctor/upload_report', methods=['POST'])
 @login_required(role='Doctor')
 def doctor_upload_report():
+    pms.reload()
     patient_id = request.form['patient_id']
     details = request.form.get('details', '').strip()
     file = request.files.get('file')
@@ -214,27 +214,21 @@ def doctor_upload_report():
         flash("Please provide a note or upload a file.", "warning")
         return redirect(url_for('doctor_dashboard'))
 
-    data = load_data()
-    doctor_name = session.get('username', 'Unknown Doctor')
-
-    if 'reports' not in data:
-        data['reports'] = {}
-    if patient_id not in data['reports']:
-        data['reports'][patient_id] = []
-
-    report_entry = {"Date": datetime.now().strftime("%Y-%m-%d"), "Doctor": doctor_name}
-    if details:
-        report_entry["Details"] = details
-
-    if file and allowed_file(file.filename):
+    # Save file (if provided) and then use pms.upload_report to register it
+    filename = None
+    if file and file.filename != '' and allowed_file(file.filename):
         filename = f"{uuid.uuid4().hex}_{secure_filename(file.filename)}"
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        report_entry["File"] = filename
 
-    data['reports'][patient_id].append(report_entry)
-    save_data(data)
-    pms.reload()
-    flash(f"Report uploaded for patient {patient_id}.", "success")
+    # --- FIX --- use pms.upload_report(patient_id, details, file_name)
+    try:
+        res = pms.upload_report(patient_id, details if details else None, filename if filename else None)
+        # pms.upload_report already saves data via save_data inside pms_core
+        pms.reload()
+        flash(f"Report uploaded for patient {patient_id}.", "success")
+    except Exception as e:
+        flash(f"Error uploading report: {str(e)}", "danger")
+
     return redirect(url_for('doctor_dashboard'))
 
 
@@ -247,23 +241,40 @@ def uploaded_file(filename):
 @app.route('/patient')
 @login_required(role='Patient')
 def patient_dashboard():
+    # pms.current_user set by decorator
     pms.reload()
     pat_id = session.get('id')
+
+    # --- FIX --- get_patient_reports expects patient_id passed
     reports = pms.get_patient_reports(pat_id)
-    upcoming = pms.get_upcoming_checkup(pat_id)
+
+    # --- FIX --- get_upcoming_checkup in pms_core uses pms.current_user so call without arg
+    upcoming = pms.get_upcoming_checkup()
+
     return render_template('patient.html', reports=reports, upcoming=upcoming)
 
 
 @app.route('/patient/book', methods=['POST'])
 @login_required(role='Patient')
 def patient_book():
+    pms.reload()
     pat_id = session.get('id')
-    doctor_id = request.form['doctor_id']
     date = request.form['date']
     time = request.form['time']
     problem = request.form['problem']
 
-    result = pms.book_appointment(pat_id, doctor_id, date, time, problem)
+    # --- FIX --- pms.book_appointment signature is (name, age, gender, date, time, problem)
+    patient = pms.data.get('patients', {}).get(pat_id)
+    if not patient:
+        flash("Patient record not found.", "danger")
+        return redirect(url_for('patient_dashboard'))
+
+    name = patient.get('name')
+    age = patient.get('age')
+    gender = patient.get('gender')
+
+    result = pms.book_appointment(name, age, gender, date, time, problem)
+    # book_appointment returns a user-facing message; show it
     flash(result, "success")
     return redirect(url_for('patient_dashboard'))
 
@@ -271,11 +282,21 @@ def patient_book():
 @app.route('/patient/emergency', methods=['POST'])
 @login_required(role='Patient')
 def patient_emergency():
+    pms.reload()
     pat_id = session.get('id')
-    doctor_id = request.form.get('doctor_id')  # optional
     problem = request.form['problem']
 
-    result = pms.log_emergency(pat_id, doctor_id, problem)
+    patient = pms.data.get('patients', {}).get(pat_id)
+    if not patient:
+        flash("Patient record not found.", "danger")
+        return redirect(url_for('patient_dashboard'))
+
+    name = patient.get('name')
+    age = patient.get('age')
+    gender = patient.get('gender')
+
+    # --- FIX --- pms.log_emergency signature is (name, age, gender, problem)
+    result = pms.log_emergency(name, age, gender, problem)
     flash(result, "danger")
     return redirect(url_for('patient_dashboard'))
 
@@ -286,4 +307,3 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_DEBUG', '0') == '1'
     app.run(host=host, port=port, debug=debug)
-
