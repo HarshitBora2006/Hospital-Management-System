@@ -231,6 +231,31 @@ def doctor_upload_report():
     return redirect(url_for('doctor_dashboard'))
 
 
+@app.route('/doctor/create_referral', methods=['POST'])
+@login_required(role='Doctor')
+def doctor_create_referral():
+    """
+    Form handler used by doctor.html's "Create Referral" form.
+    Falls back to pms.create_referral and flashes a message.
+    """
+    pms.reload()
+    patient_id = request.form.get('patient_id')
+    to_doc_id = request.form.get('to_doc_id')
+    notes = request.form.get('notes', '')
+
+    if not patient_id or not to_doc_id:
+        flash("Patient ID and target doctor are required.", "danger")
+        return redirect(url_for('doctor_dashboard'))
+
+    res = pms.create_referral(patient_id, to_doc_id, notes)
+    pms.reload()
+    if isinstance(res, str) and res.lower().startswith('error'):
+        flash(res, "danger")
+    else:
+        flash("Referral created successfully.", "success")
+    return redirect(url_for('doctor_dashboard'))
+
+
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
@@ -250,7 +275,10 @@ def patient_dashboard():
     # get_upcoming_checkup in pms_core uses pms.current_user so call without arg
     upcoming = pms.get_upcoming_checkup()
 
-    return render_template('patient.html', reports=reports, upcoming=upcoming)
+    # patient appointment history
+    history = pms.get_patient_enquiries()
+
+    return render_template('patient.html', reports=reports, upcoming=upcoming, history=history)
 
 
 @app.route('/patient/book', methods=['POST'])
@@ -310,32 +338,16 @@ def api_patient_details(appt_id):
     {
       patient_id, name, age, gender, problem, date, time, reports: []
     }
+    Uses pms.get_appointment_details to keep logic centralized.
     """
     pms.reload()
-    appt = None
-    for a in pms.data.get('appointments', []):
-        if str(a.get('id')) == str(appt_id):
-            appt = a
-            break
-
-    if not appt:
+    details = pms.get_appointment_details(str(appt_id))
+    if details is None:
         return jsonify({'error': 'Appointment not found'}), 404
-
-    patient = pms.data.get('patients', {}).get(appt.get('patient_id'), {})
-
-    # reports stored as dict patient_id -> list
-    reports = pms.data.get('reports', {}).get(appt.get('patient_id'), [])
-
-    return jsonify({
-        'patient_id': appt.get('patient_id'),
-        'name': patient.get('name', 'Unknown'),
-        'age': patient.get('age', 'N/A'),
-        'gender': patient.get('gender', 'N/A'),
-        'problem': appt.get('problem', '-'),
-        'date': appt.get('date', '-'),
-        'time': appt.get('time', '-'),
-        'reports': reports
-    })
+    # pms.get_appointment_details returns either the dict or {'error': ...}
+    if isinstance(details, dict) and details.get('error'):
+        return jsonify({'error': details.get('error')}), 404
+    return jsonify(details)
 
 
 @app.route('/api/appointment/<appt_id>', methods=['GET'])
@@ -356,17 +368,22 @@ def api_appointment(appt_id):
 @app.route('/api/delete_appointment/<appt_id>', methods=['DELETE'])
 @login_required(role='Doctor')
 def api_delete_appointment(appt_id):
+    """
+    Uses pms.delete_appointment to remove by ID.
+    Returns exactly { "message": "Appointment deleted" } on success to match JS expectations.
+    """
     pms.reload()
-    appts = pms.data.get('appointments', [])
-    new_appts = [a for a in appts if str(a.get('id')) != str(appt_id)]
-
-    if len(new_appts) == len(appts):
+    res = pms.delete_appointment(str(appt_id))
+    # pms.delete_appointment returns a dict with message or message 'Appointment not found'
+    if not res or not isinstance(res, dict):
         return jsonify({'error': 'Appointment not found'}), 404
 
-    pms.data['appointments'] = new_appts
-    save_data(pms.data)
-    pms.reload()
-    return jsonify({'message': 'Appointment deleted successfully'})
+    msg = res.get('message', '')
+    if 'not found' in msg.lower():
+        return jsonify({'error': 'Appointment not found'}), 404
+
+    # return the exact message shape JS expects
+    return jsonify({'message': 'Appointment deleted'}), 200
 
 
 @app.route('/api/update_appointment/<appt_id>', methods=['POST'])
@@ -436,10 +453,8 @@ def api_refer_patient(appt_id):
 
     # create_referral uses pms.current_user (decorator already set it)
     res = pms.create_referral(patient_id, to_doc_id, notes)
-    # pms.create_referral already saves via save_data
     pms.reload()
 
-    # It returns a success message string or error string
     if isinstance(res, str) and res.lower().startswith('error'):
         return jsonify({'error': res}), 400
 
