@@ -174,12 +174,33 @@ def api_patient_counts():
 @app.route('/doctor')
 @login_required(role='Doctor')
 def doctor_dashboard():
-    pms.reload()
-    doc_id = session.get('id')
-    today = datetime.now().strftime("%Y-%m-%d")
-    todays = pms.get_today_appointments(doc_id)
-    emergencies = pms.get_emergency_cases(doc_id)
-    return render_template('doctor.html', todays=todays, emergencies=emergencies, today=today)
+    if session.get('role') != 'Doctor':
+        flash("Access denied!")
+        return redirect(url_for('login'))
+
+    doctor_id = session.get('id')
+    today = datetime.now().strftime('%Y-%m-%d')
+
+    # Get today's appointments
+    schedule = pms.get_today_appointments(doctor_id)
+
+    # Get emergency cases
+    emergencies = pms.get_emergency_cases(doctor_id)
+
+    # Get incoming referrals
+    incoming = pms.get_incoming_referrals(doctor_id)
+
+    # Get other doctors for referral dropdown
+    other_docs = {id: doc for id, doc in pms.data.get('doctors', {}).items() if id != doctor_id}
+
+    return render_template(
+        'doctor.html',
+        schedule=schedule,      # Matches template loop {% for s in schedule %}
+        emergencies=emergencies,
+        today=today,
+        other_docs=other_docs,
+        incoming=incoming       # Matches template loop {% for i in incoming %}
+    )
 
 
 @app.route('/doctor/upload_report', methods=['POST'])
@@ -265,3 +286,4 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_DEBUG', '0') == '1'
     app.run(host=host, port=port, debug=debug)
+
