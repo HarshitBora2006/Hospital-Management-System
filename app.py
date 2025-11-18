@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from jinja2 import FileSystemLoader
 from werkzeug.utils import secure_filename
 from datetime import datetime
-import os, uuid
+import os, uuid, json
 from pms_core import PatientManagementSystem
 from data_manager import load_data, save_data
 
@@ -74,12 +74,12 @@ def signup():
         gender = request.form['gender'].strip()
 
         data = load_data()
-        if username in data['users']:
+        if username in data.get('users', {}):
             flash("Username already exists.", "danger")
             return redirect(url_for('signup'))
 
         patient_id = pms._generate_id()
-        data['users'][username] = {'password': password, 'role': 'Patient', 'id': patient_id}
+        data.setdefault('users', {})[username] = {'password': password, 'role': 'Patient', 'id': patient_id}
         data.setdefault('patients', {})[patient_id] = {'id': patient_id, 'name': name, 'age': age, 'gender': gender}
         save_data(data)
 
@@ -220,10 +220,9 @@ def doctor_upload_report():
         filename = f"{uuid.uuid4().hex}_{secure_filename(file.filename)}"
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
-    # --- FIX --- use pms.upload_report(patient_id, details, file_name)
+    # call pms.upload_report which saves using save_data internally
     try:
         res = pms.upload_report(patient_id, details if details else None, filename if filename else None)
-        # pms.upload_report already saves data via save_data inside pms_core
         pms.reload()
         flash(f"Report uploaded for patient {patient_id}.", "success")
     except Exception as e:
@@ -245,10 +244,10 @@ def patient_dashboard():
     pms.reload()
     pat_id = session.get('id')
 
-    # --- FIX --- get_patient_reports expects patient_id passed
+    # get_patient_reports expects patient_id passed
     reports = pms.get_patient_reports(pat_id)
 
-    # --- FIX --- get_upcoming_checkup in pms_core uses pms.current_user so call without arg
+    # get_upcoming_checkup in pms_core uses pms.current_user so call without arg
     upcoming = pms.get_upcoming_checkup()
 
     return render_template('patient.html', reports=reports, upcoming=upcoming)
@@ -263,7 +262,7 @@ def patient_book():
     time = request.form['time']
     problem = request.form['problem']
 
-    # --- FIX --- pms.book_appointment signature is (name, age, gender, date, time, problem)
+    # pms.book_appointment signature is (name, age, gender, date, time, problem)
     patient = pms.data.get('patients', {}).get(pat_id)
     if not patient:
         flash("Patient record not found.", "danger")
@@ -295,10 +294,156 @@ def patient_emergency():
     age = patient.get('age')
     gender = patient.get('gender')
 
-    # --- FIX --- pms.log_emergency signature is (name, age, gender, problem)
+    # pms.log_emergency signature is (name, age, gender, problem)
     result = pms.log_emergency(name, age, gender, problem)
     flash(result, "danger")
     return redirect(url_for('patient_dashboard'))
+
+
+# ---------------- API endpoints used by modal / JS ----------------
+
+@app.route('/api/patient_details/<appt_id>', methods=['GET'])
+@login_required(role='Doctor')
+def api_patient_details(appt_id):
+    """
+    Return JSON used by the modal:
+    {
+      patient_id, name, age, gender, problem, date, time, reports: []
+    }
+    """
+    pms.reload()
+    appt = None
+    for a in pms.data.get('appointments', []):
+        if str(a.get('id')) == str(appt_id):
+            appt = a
+            break
+
+    if not appt:
+        return jsonify({'error': 'Appointment not found'}), 404
+
+    patient = pms.data.get('patients', {}).get(appt.get('patient_id'), {})
+
+    # reports stored as dict patient_id -> list
+    reports = pms.data.get('reports', {}).get(appt.get('patient_id'), [])
+
+    return jsonify({
+        'patient_id': appt.get('patient_id'),
+        'name': patient.get('name', 'Unknown'),
+        'age': patient.get('age', 'N/A'),
+        'gender': patient.get('gender', 'N/A'),
+        'problem': appt.get('problem', '-'),
+        'date': appt.get('date', '-'),
+        'time': appt.get('time', '-'),
+        'reports': reports
+    })
+
+
+@app.route('/api/appointment/<appt_id>', methods=['GET'])
+@login_required()
+def api_appointment(appt_id):
+    """Simple appointment + patient info endpoint (used by some JS)."""
+    pms.reload()
+    for a in pms.data.get('appointments', []):
+        if str(a.get('id')) == str(appt_id):
+            patient = pms.data.get('patients', {}).get(a.get('patient_id'), {})
+            return jsonify({
+                'appointment': a,
+                'patient': patient
+            })
+    return jsonify({'error': 'Appointment not found'}), 404
+
+
+@app.route('/api/delete_appointment/<appt_id>', methods=['DELETE'])
+@login_required(role='Doctor')
+def api_delete_appointment(appt_id):
+    pms.reload()
+    appts = pms.data.get('appointments', [])
+    new_appts = [a for a in appts if str(a.get('id')) != str(appt_id)]
+
+    if len(new_appts) == len(appts):
+        return jsonify({'error': 'Appointment not found'}), 404
+
+    pms.data['appointments'] = new_appts
+    save_data(pms.data)
+    pms.reload()
+    return jsonify({'message': 'Appointment deleted successfully'})
+
+
+@app.route('/api/update_appointment/<appt_id>', methods=['POST'])
+@login_required(role='Doctor')
+def api_update_appointment(appt_id):
+    """
+    Request JSON: { "status": "Approved" } etc.
+    """
+    pms.reload()
+    payload = {}
+    try:
+        payload = request.get_json(force=True)
+    except Exception:
+        pass
+
+    new_status = payload.get('status') if payload else request.form.get('status')
+
+    if not new_status:
+        return jsonify({'error': 'Missing status'}), 400
+
+    found = False
+    for a in pms.data.get('appointments', []):
+        if str(a.get('id')) == str(appt_id):
+            a['status'] = new_status
+            found = True
+            break
+
+    if not found:
+        return jsonify({'error': 'Appointment not found'}), 404
+
+    save_data(pms.data)
+    pms.reload()
+    return jsonify({'message': 'Status updated'})
+
+
+@app.route('/api/refer_patient/<appt_id>', methods=['POST'])
+@login_required(role='Doctor')
+def api_refer_patient(appt_id):
+    """
+    Body: { "doctor_id": "<target_doc_id>", "notes": "optional notes" }
+    Creates a referral record from current doctor -> target doctor for appointment's patient.
+    """
+    pms.reload()
+
+    try:
+        payload = request.get_json(force=True)
+    except Exception:
+        payload = {}
+
+    to_doc_id = payload.get('doctor_id') or request.form.get('doctor_id')
+    notes = payload.get('notes') or request.form.get('notes') or ''
+
+    if not to_doc_id:
+        return jsonify({'error': 'Missing doctor_id'}), 400
+
+    # find appointment
+    appt = None
+    for a in pms.data.get('appointments', []):
+        if str(a.get('id')) == str(appt_id):
+            appt = a
+            break
+
+    if not appt:
+        return jsonify({'error': 'Appointment not found'}), 404
+
+    patient_id = appt.get('patient_id')
+
+    # create_referral uses pms.current_user (decorator already set it)
+    res = pms.create_referral(patient_id, to_doc_id, notes)
+    # pms.create_referral already saves via save_data
+    pms.reload()
+
+    # It returns a success message string or error string
+    if isinstance(res, str) and res.lower().startswith('error'):
+        return jsonify({'error': res}), 400
+
+    return jsonify({'message': 'Referral created successfully'})
 
 
 # ---------------- Run server ----------------
