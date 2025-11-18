@@ -16,7 +16,7 @@
   <h3>My Appointments</h3>
   <ul>
     {% for h in history %}
-      <li><strong>{{ h['Date'] }}</strong> — {{ h['Problem'] }} ({{ h['Status'] or 'Pending' }})</li>
+      <li><strong>{{ h.get('Date') }}</strong> — {{ h.get('Problem') }} ({{ h.get('Status','Pending') }})</li>
     {% else %}
       <li>No previous appointments found.</li>
     {% endfor %}
@@ -25,7 +25,11 @@
   <h3>Upcoming Checkups</h3>
   {% if upcoming %}
     <ul>
-      <li><strong>{{ upcoming['Date'] }}</strong> at {{ upcoming['Time'] }} — {{ upcoming['Problem'] }} with Dr. {{ upcoming['Doctor'] }}</li>
+      <li>
+        <strong>{{ upcoming.get('Date') }}</strong> at {{ upcoming.get('Time') }}
+        — {{ upcoming.get('Problem') }}
+        with Dr. {{ upcoming.get('Doctor') }}
+      </li>
     </ul>
   {% else %}
     <p>No upcoming checkups scheduled.</p>
@@ -40,26 +44,26 @@
       {% for r in reports %}
         <div class="report-card">
           <div class="report-info">
-            <b>Date:</b> {{ r.Date }}<br>
-            <b>Doctor:</b> Dr. {{ r.Doctor }}
+            <b>Date:</b> {{ r.get('Date') }}<br>
+            <b>Doctor:</b> Dr. {{ r.get('Doctor') }}
           </div>
 
-          {% if r.File %}
-            {% set ext = r.File.split('.')[-1].lower() %}
+          {% if r.get('File') %}
+            {% set ext = r.get('File').split('.')[-1].lower() %}
             {% if ext in ['jpg', 'jpeg', 'png'] %}
               <div class="report-preview">
-                <a href="/uploads/{{ r.File }}" target="_blank">
-                  <img src="/uploads/{{ r.File }}" alt="{{ r.File }}">
+                <a href="/uploads/{{ r.get('File') }}" target="_blank">
+                  <img src="/uploads/{{ r.get('File') }}" alt="{{ r.get('File') }}">
                 </a>
               </div>
             {% else %}
               <div class="report-file">
-                <a href="/uploads/{{ r.File }}" target="_blank">📎 Download {{ r.File }}</a>
+                <a href="/uploads/{{ r.get('File') }}" target="_blank">📎 Download {{ r.get('File') }}</a>
               </div>
             {% endif %}
-          {% elif r.Details %}
+          {% elif r.get('Details') %}
             <div class="report-text">
-              <p>{{ r.Details }}</p>
+              <p>{{ r.get('Details') }}</p>
             </div>
           {% else %}
             <div class="report-text">
@@ -78,6 +82,7 @@
 <div id="book" class="tab-content">
   <h3>Book Appointment</h3>
   <form method="post" action="/patient/book">
+
     <input name="name" value="{{ session.get('username') }}" placeholder="Name" required>
     <input name="age" placeholder="Age" required>
     <input name="gender" placeholder="Gender" required>
@@ -85,25 +90,20 @@
 
     <!-- Time dropdown -->
     <select name="time" required>
-      {% set times = [] %}
       {% for hour in range(9, 12) %}
-          {% for minute in range(0, 60, 10) %}
-          {% set h = "%02d" % hour %}
-          {% set m = "%02d" % minute %}
-          {% set t = h ~ ":" ~ m %}
-          {% set _ = times.append(t) %}
-          {% endfor %}
+        {% for minute in [0,10,20,30,40,50] %}
+          <option value="{{ '%02d:%02d' % (hour, minute) }}">
+            {{ '%02d:%02d' % (hour, minute) }}
+          </option>
+        {% endfor %}
       {% endfor %}
+
       {% for hour in range(14, 18) %}
-          {% for minute in range(0, 60, 10) %}
-          {% set h = "%02d" % hour %}
-          {% set m = "%02d" % minute %}
-          {% set t = h ~ ":" ~ m %}
-          {% set _ = times.append(t) %}
-          {% endfor %}
-      {% endfor %}
-      {% for t in times %}
-          <option value="{{ t }}">{{ t }}</option>
+        {% for minute in [0,10,20,30,40,50] %}
+          <option value="{{ '%02d:%02d' % (hour, minute) }}">
+            {{ '%02d:%02d' % (hour, minute) }}
+          </option>
+        {% endfor %}
       {% endfor %}
     </select>
 
@@ -113,7 +113,7 @@
       <option value="Fever">Fever (General Physician)</option>
       <option value="Skin">Skin (Dermatologist)</option>
       <option value="Diabetes">Diabetes (Endocrinologist)</option>
-      <option value="Bone">Bone/Orthopedic</option>
+      <option value="Bone">Bone / Orthopedic</option>
       <option value="Can't say">Can't say</option>
     </select>
 
@@ -129,13 +129,12 @@
     <input name="age" placeholder="Age" required>
     <input name="gender" placeholder="Gender" required>
 
-    <!-- Use the same problem dropdown for consistency -->
     <select name="problem" required>
       <option value="Heart">Heart (Cardiologist)</option>
       <option value="Fever">Fever (General Physician)</option>
       <option value="Skin">Skin (Dermatologist)</option>
       <option value="Diabetes">Diabetes (Endocrinologist)</option>
-      <option value="Bone">Bone/Orthopedic</option>
+      <option value="Bone">Bone / Orthopedic</option>
       <option value="Can't say">Can't say</option>
     </select>
 
@@ -146,8 +145,8 @@
 {% raw %}
 <script>
 function showTab(tabId) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
   document.querySelector(`.tab-btn[onclick="showTab('${tabId}')"]`).classList.add('active');
   document.getElementById(tabId).classList.add('active');
 }
@@ -169,11 +168,12 @@ form input, form textarea, form select {
   border-radius: 6px;
   border: 1px solid #ccc;
 }
+
 .btn { padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; }
 .btn.primary { background: #3b82f6; color: white; }
 .btn.danger { background: #dc2626; color: white; }
 
-/* Report Grid Layout */
+/* Report grid */
 .report-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -185,13 +185,12 @@ form input, form textarea, form select {
   border: 1px solid #ddd;
   border-radius: 12px;
   padding: 15px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
   text-align: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  transition: 0.2s;
 }
 .report-card:hover {
   transform: scale(1.02);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 .report-preview img {
   width: 100%;
@@ -200,24 +199,18 @@ form input, form textarea, form select {
   border-radius: 8px;
 }
 .report-file a {
-  display: inline-block;
-  background: #3b82f6;
-  color: white;
   padding: 6px 10px;
+  background: #3b82f6;
+  color: #fff;
   border-radius: 6px;
   text-decoration: none;
 }
 .report-text {
-  background: #fff;
-  border-radius: 8px;
+  background: white;
   padding: 10px;
-  color: #333;
-  font-size: 0.95em;
+  border-radius: 8px;
 }
-.report-info {
-  margin-bottom: 10px;
-  font-size: 0.9em;
-  color: #444;
-}
+.report-info { margin-bottom: 10px; }
 </style>
+
 {% endblock %}
