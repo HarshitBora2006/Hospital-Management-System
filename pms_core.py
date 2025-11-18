@@ -64,7 +64,7 @@ class PatientManagementSystem:
     def get_today_appointments(self, doctor_id):
         """Return today's schedule for a doctor with booked appointments."""
         today = datetime.now().strftime('%Y-%m-%d')
-
+    
         # 10-minute slots between 09:00-12:00 and 14:00-18:00
         slots = []
         for h in range(9, 12):
@@ -73,12 +73,17 @@ class PatientManagementSystem:
         for h in range(14, 18):
             for m in range(0, 60, 10):
                 slots.append(f"{h:02d}:{m:02d}")
-
-        schedule = [{'time': t, 'status': 'Available', 'patient': '-', 'problem': '-', 'appt_id': None} for t in slots]
-
+    
+        schedule = [{'time': t, 'status': 'Available', 'patient': {}, 'problem': '-', 'appt_id': None} for t in slots]
+    
+        # Helper: fetch patient details safely
         def get_patient(pid):
-            return self.data.get('patients', {}).get(pid, {'name': 'Unknown', 'age': 'N/A', 'gender': 'N/A'})
-
+            patient = self.data.get('patients', {}).get(pid)
+            if not patient:
+                return {'name': 'Unknown', 'age': 'N/A', 'gender': 'N/A'}
+            return patient
+    
+        # Fill slots with appointments
         for appt in self.data.get('appointments', []):
             raw_date = str(appt.get('date', '')).strip()
             fixed_date = None
@@ -90,7 +95,7 @@ class PatientManagementSystem:
                     continue
             if not fixed_date:
                 continue
-
+    
             status = str(appt.get('status', '')).strip().lower()
             if appt.get('doctor_id') == doctor_id and fixed_date == today and status in ['approved', 'emergency']:
                 appt_time = str(appt.get('time', '')).strip()[:5]
@@ -98,12 +103,17 @@ class PatientManagementSystem:
                     if slot['time'] == appt_time:
                         patient = get_patient(appt.get('patient_id'))
                         slot['status'] = 'Booked' if status == 'approved' else 'Emergency'
-                        slot['patient'] = patient.get('name', 'Unknown')
+                        slot['patient'] = {
+                            'name': patient.get('name', 'Unknown'),
+                            'age': patient.get('age', 'N/A'),
+                            'gender': patient.get('gender', 'N/A')
+                        }
                         slot['problem'] = appt.get('problem', '-')
                         slot['appt_id'] = appt.get('id')
                         break
-
+    
         return schedule
+
 
     def get_emergency_cases(self, doctor_id):
         emergencies = []
@@ -201,6 +211,7 @@ class PatientManagementSystem:
             patient_id = self._generate_id()
             self.data.setdefault('patients', {})[patient_id] = {'id': patient_id, 'name': name, 'age': age, 'gender': gender}
             self.current_user['id'] = patient_id
+
 
         # Map problem to specialty
         problem_to_specialty = {
@@ -317,3 +328,4 @@ class PatientManagementSystem:
             save_data(data)
             return True
         return False
+
